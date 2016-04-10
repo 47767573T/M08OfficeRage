@@ -2,16 +2,26 @@
 
 class mainState extends Phaser.State {
     game: Phaser.Game;
+
+    private player:Phaser.Sprite;
     private fireball:Phaser.Sprite;
 
+    //Controles
     private cursor:Phaser.CursorKeys;
+    private
 
     preload():void {
         super.preload();
+
+        this.load.image('bg1', 'assets/');
+
     }
 
     create():void {
         super.create();
+
+
+
     }
 /*    private createFireball(){
         var anim;
@@ -53,6 +63,7 @@ class mainState extends Phaser.State {
 
         } else if (this.cursor.down.isDown) {
             this.fireball.body.acceleration.y =this.FB_ACCELERATION;
+
         } else {if (this.pad.health = 1)
             this.fireball.body.acceleration.y =0;
             this.fireball.body.acceleration.x =0;

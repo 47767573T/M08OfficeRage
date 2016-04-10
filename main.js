@@ -11,6 +11,7 @@ var mainState = (function (_super) {
     }
     mainState.prototype.preload = function () {
         _super.prototype.preload.call(this);
+        this.load.image('bg1', 'assets/');
     };
     mainState.prototype.create = function () {
         _super.prototype.create.call(this);
