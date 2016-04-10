@@ -4,25 +4,108 @@ class mainState extends Phaser.State {
     game: Phaser.Game;
 
     private player:Phaser.Sprite;
-    private fireball:Phaser.Sprite;
+
+    //Player Animation
+    private FRAME_SIZE = 64;
+    private PJ_SCALE = 1.5;
+    private PJ_FRAME_RATE = 10;
+    private PJ_MAX_SPEED = 200;
+    private PJ_GRAVITY = 500;
+    private onJump;
+    private onLiteAtq;
+    private onWalk;
+
 
     //Controles
     private cursor:Phaser.CursorKeys;
-    private
+    private upBtn;
+    private leftBtn;
+    private rightBtn;
+    private downBtn;
+
+
 
     preload():void {
         super.preload();
 
-        this.load.image('bg1', 'assets/');
+        this.load.image('bg1', 'assets/background1.jpg');
+        this.preloadPJ();
 
+        this.physics.startSystem(Phaser.Physics.ARCADE);
+    }
+
+    private preloadPJ(){
+        this.load.spritesheet('animIddle', 'assets/iddle.png'
+            , this.FRAME_SIZE, this.FRAME_SIZE, 4
+        );
+
+        this.load.spritesheet('animLiteAtq', 'assets/lightAttack.png'
+            , this.FRAME_SIZE, this.FRAME_SIZE, 6
+        );
+
+        this.load.spritesheet('animJump', 'assets/jump.png'
+            , this.FRAME_SIZE, this.FRAME_SIZE, 6
+        );
+
+        this.load.spritesheet('animWalk', 'assets/walk.png'
+            , this.FRAME_SIZE, this.FRAME_SIZE, 8
+        );
     }
 
     create():void {
         super.create();
 
+        this.createBG('bg1');
+        this.createPlayer();
 
+        this.configControls();
 
     }
+
+    private createBG(backGroundKey) {
+        var bg = this.add.sprite(0, 0, backGroundKey);
+        var scale = this.world.height / bg.height;
+        bg.scale.setTo(scale, scale);
+
+    }
+
+    private createPlayer(){
+
+        this.player = this.add.sprite(this.world.centerX, this.world.centerY, 'animWalk');
+
+        this.player.scale.setTo(this.PJ_SCALE, this.PJ_SCALE);
+        this.player.anchor.setTo(0, 1);
+
+        this.loadAnimations();
+        this.player.animations.add('animWalk').play(this.PJ_FRAME_RATE,true);
+
+        this.physics.enable(this.player, Phaser.Physics.ARCADE);
+        this.player.checkWorldBounds = true;
+        this.player.body.collideWorldBounds = true;
+        this.player.body.maxVelocity.setTo(this.PJ_MAX_SPEED, this.PJ_MAX_SPEED);
+
+        //TODO: mirar como funciona la gravedad
+        this.player.body.gravity.y = this.PJ_GRAVITY;
+    }
+
+    private loadAnimations(){
+
+        console.log("Cargadas animaciones")
+        this.onJump = this.player.animations.add('animJump');
+        this.onLiteAtq = this.player.animations.add('animLiteAtq');
+        this.onWalk = this.player.animations.add('animWalk');
+
+    }
+
+    private configControls () {
+        this.cursor = this.input.keyboard.createCursorKeys();
+
+        this.upBtn = this.input.keyboard.addKey(Phaser.Keyboard.W);
+        this.leftBtn = this.input.keyboard.addKey(Phaser.Keyboard.A);
+        this.rightBtn = this.input.keyboard.addKey(Phaser.Keyboard.D);
+    }
+
+    //private jump
 /*    private createFireball(){
         var anim;
 
@@ -48,28 +131,31 @@ class mainState extends Phaser.State {
 
     update():void {
         super.update();
+
+        this.PJmovement();
     }
 
-/*  private fireballMove(){
+    private PJmovement(){
 
-        if (this.cursor.left.isDown) {
-            this.fireball.body.acceleration.x =-this.FB_ACCELERATION;
+        if (this.leftBtn.isDown) {
+            this.player.body.velocity.x = -this.PJ_MAX_SPEED;
+            this.onWalk.play(this.PJ_FRAME_RATE, true);
 
-        } else if (this.cursor.right.isDown) {
-            this.fireball.body.acceleration.x =this.FB_ACCELERATION;
+        }else if (this.rightBtn.isDown && this.upBtn.isUp) {
+            this.player.body.velocity.x = this.PJ_MAX_SPEED;
+            this.onWalk.play(this.PJ_FRAME_RATE, true);
 
-        } else if (this.cursor.up.isDown) {
-            this.fireball.body.acceleration.y =-this.FB_ACCELERATION;
-
-        } else if (this.cursor.down.isDown) {
-            this.fireball.body.acceleration.y =this.FB_ACCELERATION;
-
-        } else {if (this.pad.health = 1)
-            this.fireball.body.acceleration.y =0;
-            this.fireball.body.acceleration.x =0;
+        } else {
+            this.player.body.velocity.x = 0;
+            this.player.animations.play('animIdle', this.PJ_FRAME_RATE, true);
         }
+
+        if(this.cursor.up.isDown && this.player.body.touching.down){
+            this.player.body.velocity.y = -350;
+        }
+
     }
-*/
+
 
 }
 
@@ -77,13 +163,12 @@ class SimpleGame {
     game:Phaser.Game;
 
     constructor() {
-        this.game = new Phaser.Game(500, 500, Phaser.AUTO, 'gameDiv');
+        this.game = new Phaser.Game(800, 500, Phaser.AUTO, 'gameDiv');
 
         this.game.state.add('main', mainState);
         this.game.state.start('main');
     }
 }
-
 
 window.onload = () => {
     var game = new SimpleGame();
