@@ -5,6 +5,7 @@ class mainState extends Phaser.State {
     monsters:Phaser.Group;
     fireballs:Phaser.Group;
     player:Phaser.Sprite;
+    fireball:Phaser.Sprite;
 
     //Player Animation
     private PJ_FRAME_WIDTH = 64;
@@ -27,7 +28,7 @@ class mainState extends Phaser.State {
     private FB_FRAME_HEIGHT = 36;
     private FB_MAX_SPEED = 500;
     private nextFire = 0;
-    private fireRate = 100;
+    private fireRate = 500;
 
     //Controles
     private cursor:Phaser.CursorKeys;
@@ -45,8 +46,9 @@ class mainState extends Phaser.State {
         this.load.image('bg1', 'assets/background1.jpg');
         this.load.spritesheet('playerAnimation', 'assets/allAnimation.png', this.PJ_FRAME_WIDTH, this.PJ_FRAME_HEIGHT, 66);
         this.load.spritesheet('monsterAnimation', 'assets/monsters.png', this.MOB_FRAME_WIDTH, this.MOB_FRAME_HEIGHT, 24);
-        this.load.spritesheet('fireball', 'assets/flameShotSet.png', this.FB_FRAME_WIDTH, this.FB_FRAME_HEIGHT, 6);
-        this.load.audio('blaster', 'assets/audio/SoundEffects/blaster.mp3');
+        this.load.spritesheet('fireballAnimation', 'assets/flameShotSet.png', this.FB_FRAME_WIDTH, this.FB_FRAME_HEIGHT, 6);
+        this.load.image('fireball', 'assets/Fireball.png');
+        //this.load.audio('blaster', 'assets/audio/SoundEffects/blaster.mp3');
 
         this.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -78,7 +80,6 @@ class mainState extends Phaser.State {
         var bg = this.add.sprite(0, 0, backGroundKey);
         var scale = this.world.height / bg.height;
         bg.scale.setTo(scale, scale);
-
     }
 
     private createPlayer(){
@@ -140,23 +141,15 @@ class mainState extends Phaser.State {
         this.fireballs = this.add.group();
         this.fireballs.enableBody = true;
         this.fireballs.physicsBodyType = Phaser.Physics.ARCADE;
+        this.fireballs.classType = Fireball;
         this.fireballs.createMultiple(20, 'fireball');
-
-        this.fireballs.setAll('anchor.x', 0.5);
-        this.fireballs.setAll('anchor.y', 0.5);
-        this.fireballs.setAll('scale.x', 0.5);
-        this.fireballs.setAll('scale.y', 0.5);
-
-        this.fireballs.setAll('outOfBoundsKill', true);
-        this.fireballs.setAll('checkWorldBounds', true);
-
     }
 
 
     update():void {
         super.update();
         this.PJmovement();
-        this.fireWithRightMouse();
+        this.fireWithLeftMouse();
     }
 
     private PJmovement(){
@@ -187,7 +180,7 @@ class mainState extends Phaser.State {
         }
     }
 
-    private fireWithRightMouse(){
+    private fireWithLeftMouse(){
         if (this.input.activePointer.isDown) {
             this.shoot();
         }
@@ -195,41 +188,29 @@ class mainState extends Phaser.State {
 
     shoot(): void {
 
-        console.log("disparo");
 
         if (this.time.now > this.nextFire && this.fireballs.countDead() > 0){
             this.nextFire = this.time.now + this.fireRate;
 
-            var fireball = new Fireball(this.game, this.player.x, this.player.y, 'fireball');
-            fireball = this.game.add.sprite();
-            fireball.play('shoot');
-            fireball.body.velocity.x = 500;
-            fireball.scale.setTo(0.5, 0.5);
-            this.physics.enable(fireball, Phaser.Physics.ARCADE);
-            console.log("creada bola de fuego");
+            var fireball = this.fireballs.getFirstDead();
+
+            if (fireball) {
+                fireball.reset(this.player.x, this.player.y);
+                fireball.animations.play('shoot', 10);
+                if (this.rightStance) fireball.body.velocity.x = this.FB_MAX_SPEED;
+                else fireball.body.velocity.x = -this.FB_MAX_SPEED;
+            }
+            //var fireball = new Fireball(this.game, this.player.x, this.player.y, 'fireball');
+            //fireball = this.game.add.sprite()"Phaser.Loader - audio[blaster]: error loading asset from URL assets/audio/SoundEffects/blaster.mp3 (404)";
+            //fireball.play('shoot');
+            //fireball.body.velocity.x = 500;
+            //fireball.scale.setTo(0.5, 0.5);
+            //this.physics.enable(fidwreball, Phaser.Physics.ARCADE);
+            //console.log("creada bola de fuego");
 
         }
     }
 }
-/*
-private createPlayer(){
-
-    this.player = this.add.sprite(this.world.centerX, this.world.centerY, 'playerAnimation');
-
-    this.player.scale.setTo(this.PJ_SCALE, this.PJ_SCALE);
-    this.player.anchor.setTo(0, 1);
-
-    this.playerAnimationsLoad();
-
-    this.physics.enable(this.player, Phaser.Physics.ARCADE);
-    this.player.checkWorldBounds = true;
-    this.player.body.collideWorldBounds = true;
-    this.player.body.maxVelocity.setTo(this.PJ_MAX_SPEED, this.PJ_MAX_SPEED);
-
-    this.player.body.gravity.y = this.PJ_GRAVITY;
-}
-
-*/
 class Monster extends Phaser.Sprite {
 
     constructor(game:Phaser.Game, x:number, y:number, key:string|Phaser.RenderTexture|Phaser.BitmapData|PIXI.Texture) {
@@ -259,11 +240,12 @@ class Fireball extends Phaser.Sprite {
 
         this.game.physics.enable(this, Phaser.Physics.ARCADE);
         this.anchor.setTo(0.5, 0.5);
+        this.scale.setTo(0.5, 0.5);
 
+        this.animations.add('shoot');//, [1,2,3,4,5,6], 10,true);
+
+        this.outOfBoundsKill = true;
         this.checkWorldBounds = true;
-        this.body.collideWorldBounds = false;
-
-        this.animations.add('shoot', [5,6,7,8,9], 10,true);
 
     }
     update():void {
