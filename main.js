@@ -14,14 +14,20 @@ var mainState = (function (_super) {
         this.PJ_SCALE = 1.5;
         this.PJ_FRAME_RATE = 10;
         this.PJ_MAX_SPEED = 200;
-        this.PJ_GRAVITY = 500;
+        this.PJ_GRAVITY = 200;
         this.jumpTimer = 0;
         this.rightStance = true;
         //Monsters Animation
         this.MOB_QUANTITY = 30;
         this.MOB_FRAME_WIDTH = 64;
         this.MOB_FRAME_HEIGHT = 36;
-        this.MOB_GRAVITY = 700;
+        this.MOB_GRAVITY = 500;
+        //Fireball Animation
+        this.FB_FRAME_WIDTH = 64;
+        this.FB_FRAME_HEIGHT = 36;
+        this.FB_MAX_SPEED = 500;
+        this.nextFire = 0;
+        this.fireRate = 100;
         this.upBtn = null;
         this.leftBtn = null;
         this.rightBtn = null;
@@ -31,7 +37,7 @@ var mainState = (function (_super) {
         this.load.image('bg1', 'assets/background1.jpg');
         this.load.spritesheet('playerAnimation', 'assets/allAnimation.png', this.PJ_FRAME_WIDTH, this.PJ_FRAME_HEIGHT, 66);
         this.load.spritesheet('monsterAnimation', 'assets/monsters.png', this.MOB_FRAME_WIDTH, this.MOB_FRAME_HEIGHT, 24);
-        //this.load.spritesheet('fireball', 'assets/flameShotSet.png', this.FRAME_WIDTH, this.FRAME_HEIGHT, 6);
+        this.load.spritesheet('fireball', 'assets/flameShotSet.png', this.FB_FRAME_WIDTH, this.FB_FRAME_HEIGHT, 6);
         this.load.audio('blaster', 'assets/audio/SoundEffects/blaster.mp3');
         this.physics.startSystem(Phaser.Physics.ARCADE);
     };
@@ -41,6 +47,7 @@ var mainState = (function (_super) {
         this.createBG('bg1');
         this.createPlayer();
         this.createMonsters();
+        this.createFireballs();
     };
     mainState.prototype.configControls = function () {
         this.cursor = this.input.keyboard.createCursorKeys();
@@ -94,31 +101,22 @@ var mainState = (function (_super) {
             this.monsters.add(monster);
         }
     };
-    /*    private createFireball(){
-            var anim;
-    
-            this.fireball = this.add.sprite(this.world.centerX, this.world.centerY, 'fireball');
-            this.fireball.scale.setTo(0.15, 0.15);
-            this.fireball.anchor.setTo(0.5, 0.5);
-    
-            //variables Animacion
-            anim = this.fireball.animations.add('run');
-            anim.play(15, true);
-    
-            //variables de movimiento
-            this.physics.enable(this.fireball);
-            this.fireball.body.collideWorldBounds = true;       //Colision
-            this.fireball.body.bounce.setTo(0.8);               //Rebote
-            this.fireball.body.maxVelocity.setTo(this.FB_MAX_SPEED, this.FB_MAX_SPEED);
-            this.fireball.body.drag.setTo(this.FB_FRICTION, this.FB_FRICTION);
-    
-            this.fireball.rotation = this.physics.arcade.angleToPointer(this.fireball)
-    
-        }
-    */
+    mainState.prototype.createFireballs = function () {
+        this.fireballs = this.add.group();
+        this.fireballs.enableBody = true;
+        this.fireballs.physicsBodyType = Phaser.Physics.ARCADE;
+        this.fireballs.createMultiple(20, 'fireball');
+        this.fireballs.setAll('anchor.x', 0.5);
+        this.fireballs.setAll('anchor.y', 0.5);
+        this.fireballs.setAll('scale.x', 0.5);
+        this.fireballs.setAll('scale.y', 0.5);
+        this.fireballs.setAll('outOfBoundsKill', true);
+        this.fireballs.setAll('checkWorldBounds', true);
+    };
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
         this.PJmovement();
+        this.fireWithRightMouse();
     };
     mainState.prototype.PJmovement = function () {
         if (this.leftBtn.isDown) {
@@ -139,7 +137,7 @@ var mainState = (function (_super) {
                 this.player.animations.play('iddleLeft');
         }
         if (this.upBtn.isDown && this.player.body.onFloor() && this.time.now > this.jumpTimer) {
-            this.player.body.velocity.y = -1600;
+            this.player.body.velocity.y = -500;
             this.jumpTimer = this.time.now + 750;
             if (this.rightStance)
                 this.player.animations.play('jumpRight');
@@ -147,8 +145,45 @@ var mainState = (function (_super) {
                 this.player.animations.play('jumpLeft');
         }
     };
+    mainState.prototype.fireWithRightMouse = function () {
+        if (this.input.activePointer.isDown) {
+            this.shoot();
+        }
+    };
+    mainState.prototype.shoot = function () {
+        console.log("disparo");
+        if (this.time.now > this.nextFire && this.fireballs.countDead() > 0) {
+            this.nextFire = this.time.now + this.fireRate;
+            var fireball = new Fireball(this.game, this.player.x, this.player.y, 'fireball');
+            fireball = this.game.add.sprite();
+            fireball.play('shoot');
+            fireball.body.velocity.x = 500;
+            fireball.scale.setTo(0.5, 0.5);
+            this.physics.enable(fireball, Phaser.Physics.ARCADE);
+            console.log("creada bola de fuego");
+        }
+    };
     return mainState;
 })(Phaser.State);
+/*
+private createPlayer(){
+
+    this.player = this.add.sprite(this.world.centerX, this.world.centerY, 'playerAnimation');
+
+    this.player.scale.setTo(this.PJ_SCALE, this.PJ_SCALE);
+    this.player.anchor.setTo(0, 1);
+
+    this.playerAnimationsLoad();
+
+    this.physics.enable(this.player, Phaser.Physics.ARCADE);
+    this.player.checkWorldBounds = true;
+    this.player.body.collideWorldBounds = true;
+    this.player.body.maxVelocity.setTo(this.PJ_MAX_SPEED, this.PJ_MAX_SPEED);
+
+    this.player.body.gravity.y = this.PJ_GRAVITY;
+}
+
+*/
 var Monster = (function (_super) {
     __extends(Monster, _super);
     function Monster(game, x, y, key) {
@@ -159,13 +194,43 @@ var Monster = (function (_super) {
         this.checkWorldBounds = true;
         this.body.collideWorldBounds = true;
         this.animations.add('walk', [5, 6, 7, 8, 9], 10, true);
-        this.animations.add('dead', [17, 18, 19, 20, 21, 22, 23], 10, true);
     }
     Monster.prototype.update = function () {
         _super.prototype.update.call(this);
     };
     return Monster;
 })(Phaser.Sprite);
+var Fireball = (function (_super) {
+    __extends(Fireball, _super);
+    function Fireball(game, x, y, key) {
+        _super.call(this, game, x, y, key);
+        this.game.physics.enable(this, Phaser.Physics.ARCADE);
+        this.anchor.setTo(0.5, 0.5);
+        this.checkWorldBounds = true;
+        this.body.collideWorldBounds = false;
+        this.animations.add('shoot', [5, 6, 7, 8, 9], 10, true);
+    }
+    Fireball.prototype.update = function () {
+        _super.prototype.update.call(this);
+    };
+    return Fireball;
+})(Phaser.Sprite);
+/*
+this.fireball = this.add.sprite(this.player.x, this.player.y, 'fireball');
+this.fireball.scale.setTo(0.15, 0.15);
+this.fireball.anchor.setTo(0.5, 0.5);
+
+//variables Animacion
+this.fireball.animations.add('run').play();
+
+//variables de movimiento
+this.physics.enable(this.fireball);
+this.fireball.body.collideWorldBounds = true;       //Colision
+this.fireball.body.bounce.setTo(0.8);               //Rebote
+this.fireball.body.maxVelocity.setTo(this.FB_MAX_SPEED, this.FB_MAX_SPEED);
+
+this.fireball.rotation = this.physics.arcade.angleToPointer(this.fireball)
+*/
 var SimpleGame = (function () {
     function SimpleGame() {
         this.game = new Phaser.Game(800, 500, Phaser.AUTO, 'gameDiv');
