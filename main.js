@@ -8,6 +8,8 @@ var mainState = (function (_super) {
     __extends(mainState, _super);
     function mainState() {
         _super.apply(this, arguments);
+        this.gameLevel = 0;
+        this.levelUp = false;
         //Player vars
         this.PJ_FRAME_WIDTH = 32;
         this.PJ_FRAME_HEIGHT = 32;
@@ -17,13 +19,13 @@ var mainState = (function (_super) {
         this.PJ_GRAVITY = 200;
         this.jumpTimer = 0;
         this.rightStance = true;
-        this.PJ_MAX_LIFES = 30;
+        this.PJ_MAX_LIFES = 1;
         //Monsters vars
-        this.MOB_QUANTITY = 25;
+        this.MOB_QUANTITY = 10;
         this.MOB_FRAME_WIDTH = 32;
         this.MOB_FRAME_HEIGHT = 36;
-        this.MOB_GRAVITY = 500;
-        this.MOB_MAX_VELOCITY = 200;
+        this.MOB_GRAVITY = 600;
+        this.MOB_MAX_VELOCITY = 100;
         //Fireball vars
         this.FB_MAX_SPEED = 500;
         this.nextFire = 0;
@@ -128,9 +130,10 @@ var mainState = (function (_super) {
             });
         }
         else if (this.lives == 0) {
-            console.log("GAME OVER");
             this.game.paused = true;
-            console.log("GAME ON PAUSE");
+            this.livesText.visible = false;
+            this.scoreText.visible = true;
+            this.endText.visible = true;
             this.input.onTap.addOnce(this.restart, this);
         }
     };
@@ -146,17 +149,27 @@ var mainState = (function (_super) {
         this.fireballs.setAll('checkWorldBounds', true);
     };
     mainState.prototype.createTexts = function () {
-        this.scoreText = this.add.text(this.game.canvas.width / 2, 30, 'Killed: ' + this.killed, { font: "30px Callibri", fill: "#ffffff", align: "justify" });
-        this.livesText = this.add.text(this.game.canvas.width / 2, 150, 'Saved: ' + this.lives, { font: "40px Callibri", fill: "#ffffff" });
-        this.endText = this.add.text(this.game.canvas.width / 2, 150, 'Saved: ' + this.lives, { font: "40px Callibri", fill: "#ffffff" });
+        this.scoreText = this.add.text(this.game.canvas.width / 2 - 50, 30, 'Killed: ' + this.killed, { font: "30px Callibri", fill: "#ffffff", align: "center" });
+        this.livesText = this.add.text(this.game.canvas.width / 2 - 50, 150, 'Saved: ' + this.lives + '/' + this.PJ_MAX_LIFES, { font: "40px Callibri", fill: "#ffffff", align: "center" });
+        this.endText = this.add.text(this.game.canvas.width / 2 - 200, 150, 'GAME OVER \n- click to restart -', { font: "60px Callibri", fill: "#ffffff", align: "center" });
+        this.endText.visible = false;
+        this.nextText = this.add.text(this.game.canvas.width / 2 - 200, 150, 'LEVEL ACHIEVED \n- click to next level -', { font: "60px Callibri", fill: "#ffffff", align: "center" });
+        this.nextText.visible = false;
+        this.levelText = this.add.text(10, 10, '' + this.gameLevel, { font: "60px Callibri", fill: "#ffffff", align: "center" });
+        this.nextText.visible = false;
     };
     mainState.prototype.update = function () {
         _super.prototype.update.call(this);
-        this.PJmovement();
+        this.PJmovement(); //movimientos del jugador
         this.fireWithLeftMouse();
-        this.updateText();
+        this.updateText(); //actualiza los textos de la pantall
+        this.nextLevelListener(); //comprueba las condiciones para subir de nivel
         this.physics.arcade.collide(this.fireballs, this.monsters, this.fireballHitMonster, null, this);
     };
+    /**
+     * Movimientos del jugador
+     * @constructor
+     */
     mainState.prototype.PJmovement = function () {
         if (this.lives > 0) {
             if (this.leftBtn.isDown) {
@@ -176,6 +189,7 @@ var mainState = (function (_super) {
                 else
                     this.player.animations.play('iddleLeft');
             }
+            //El salto del jugador. controla el tiempo de salto
             if (this.upBtn.isDown && this.player.body.onFloor() && this.time.now > this.jumpTimer) {
                 this.player.body.velocity.y = -500;
                 this.jumpTimer = this.time.now + 750;
@@ -186,6 +200,9 @@ var mainState = (function (_super) {
             }
         }
     };
+    /**
+     * disparo del jugador con boton de mouse
+     */
     mainState.prototype.fireWithLeftMouse = function () {
         if (this.lives > 0) {
             if (this.input.activePointer.isDown) {
@@ -193,10 +210,14 @@ var mainState = (function (_super) {
             }
         }
     };
+    /**
+     * Control del disparo del jugador
+     */
     mainState.prototype.shoot = function () {
         if (this.time.now > this.nextFire && this.fireballs.countDead() > 0) {
             this.nextFire = this.time.now + this.fireRate;
             var fireball = this.fireballs.getFirstDead();
+            //dispara bola y controla en que posicion esta el jugador para determinar velocidad
             if (fireball) {
                 fireball.reset(this.player.x + 15, this.player.y - 15);
                 if (this.rightStance)
@@ -206,7 +227,13 @@ var mainState = (function (_super) {
             }
         }
     };
+    /**
+     * metodo ccuando la bola golpea el monstruo
+     * @param fireball
+     * @param monster
+     */
     mainState.prototype.fireballHitMonster = function (fireball, monster) {
+        //Primero mostramos el texto con el tween
         var tweenIn = this.add.tween(this.scoreText).to({ alpha: 1 }, 50);
         tweenIn.start();
         fireball.kill();
@@ -216,21 +243,59 @@ var mainState = (function (_super) {
         monster.animations.currentAnim.onComplete.addOnce(function () {
             monster.kill();
         });
+        //sonido al impactar
         this.deathSound.play();
+        //fundido a transparente tras mostrar el marcador
         var tweenOut = this.add.tween(this.scoreText).to({ alpha: 0 }, 1500);
         tweenIn.onComplete.add(function () {
             tweenOut.start();
         });
     };
+    /**
+     * metodo que comprueba y actualiza los marcadores
+     */
     mainState.prototype.updateText = function () {
         this.scoreText.text = 'Killed: ' + this.killed;
         this.livesText.text = 'Saved: ' + this.lives;
     };
+    /**
+     * Metodo que comprueba en continuo si hay las condiciones para pasar de nivel
+     */
+    mainState.prototype.nextLevelListener = function () {
+        if (this.monsters.countLiving() == 0 && this.lives > 0) {
+            this.game.paused = true;
+            this.livesText.visible = false;
+            this.scoreText.visible = true;
+            this.nextText.visible = true;
+            this.levelUp = true;
+            console.log("pasa por aki");
+            this.input.onTap.addOnce(this.restart, this);
+        }
+    };
+    /**
+     * Metodo que pasa de nivel y preparar las condiciones del nuevo nivel o repite el mismo nivel si el jugador pierde
+     */
     mainState.prototype.restart = function () {
-        this.lives = this.PJ_MAX_LIFES;
-        this.killed = 0;
+        if (!this.levelUp) {
+            console.log("mismo nivel");
+            this.lives = this.PJ_MAX_LIFES;
+            this.killed = 0;
+        }
+        else if (this.levelUp) {
+            console.log("level up");
+            this.gameLevel += 1;
+            this.PJ_MAX_LIFES += 1; //mas monstruos que debemos matar
+            this.lives = this.PJ_MAX_LIFES;
+            this.MOB_QUANTITY += 2; //mayor cantidad de mosntruos
+            this.MOB_MAX_VELOCITY += 3; //aumenta el rango de velocidades asignadas a los monstruos
+        }
+        this.endText.visible = false;
+        this.nextText.visible = false;
+        this.livesText.visible = true;
+        this.scoreText.visible = true;
         this.game.paused = false;
-        this.game.state.restart();
+        this.levelUp = false;
+        this.game.state.restart(); // RESTART
     };
     return mainState;
 })(Phaser.State);
@@ -268,22 +333,6 @@ var Fireball = (function (_super) {
     };
     return Fireball;
 })(Phaser.Sprite);
-/*
-this.fireball = this.add.sprite(this.player.x, this.player.y, 'fireball');
-this.fireball.scale.setTo(0.15, 0.15);
-this.fireball.anchor.setTo(0.5, 0.5);
-
-//variables Animacion
-this.fireball.animations.add('run').play();
-
-//variables de movimiento
-this.physics.enable(this.fireball);
-this.fireball.body.collideWorldBounds = true;       //Colision
-this.fireball.body.bounce.setTo(0.8);               //Rebote
-this.fireball.body.maxVelocity.setTo(this.FB_MAX_SPEED, this.FB_MAX_SPEED);
-
-this.fireball.rotation = this.physics.arcade.angleToPointer(this.fireball)
-*/
 var SimpleGame = (function () {
     function SimpleGame() {
         this.game = new Phaser.Game(800, 500, Phaser.AUTO, 'gameDiv');

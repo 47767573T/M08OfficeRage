@@ -10,8 +10,12 @@ class mainState extends Phaser.State {
     scoreText:Phaser.Text;
     livesText:Phaser.Text;
     endText:Phaser.Text;
+    nextText:Phaser.Text;
+    levelText:Phaser.Text;
 
-    private bgSound
+    private bgSound;
+    private gameLevel = 0;
+    private levelUp:boolean = false;
 
     //Player vars
     private PJ_FRAME_WIDTH = 32;
@@ -22,14 +26,15 @@ class mainState extends Phaser.State {
     private PJ_GRAVITY = 200;
     private jumpTimer = 0;
     private rightStance = true;
-    private PJ_MAX_LIFES = 30;
+    private PJ_MAX_LIFES = 1;
 
     //Monsters vars
-    private MOB_QUANTITY = 25;
+    private MOB_QUANTITY = 10;
     private MOB_FRAME_WIDTH = 32;
     private MOB_FRAME_HEIGHT = 36;
-    private MOB_GRAVITY = 500;
-    private MOB_MAX_VELOCITY = 200;
+    private MOB_GRAVITY = 600;
+    private MOB_MAX_VELOCITY = 100;
+    private MOB_SCORE_SOUND;
     private screamSound;
     private deathSound;
 
@@ -47,7 +52,7 @@ class mainState extends Phaser.State {
     //Text
     private killed = 0;
     private lives = this.PJ_MAX_LIFES;
-    private MOB_SCORE_SOUND;
+
 
     preload():void {
 
@@ -86,6 +91,7 @@ class mainState extends Phaser.State {
         this.screamSound.allowMultiple = true;
         this.MOB_SCORE_SOUND = this.game.add.audio('mobScoreSound');
         this.MOB_SCORE_SOUND.allowMultiple = true;
+
     }
 
     private configControls() {
@@ -103,7 +109,6 @@ class mainState extends Phaser.State {
         var bg = this.add.sprite(0, 0, backGroundKey);
         var scale = this.world.height / bg.height;
         bg.scale.setTo(scale, scale);
-
 
     }
 
@@ -179,10 +184,13 @@ class mainState extends Phaser.State {
             });
 
         }else if(this.lives == 0){
-            console.log("GAME OVER");
 
             this.game.paused = true;
-            console.log("GAME ON PAUSE");
+
+            this.livesText.visible = false;
+            this.scoreText.visible = true;
+
+            this.endText.visible = true;
 
             this.input.onTap.addOnce(this.restart, this);
 
@@ -206,37 +214,57 @@ class mainState extends Phaser.State {
 
     private createTexts() {
 
-        this.scoreText = this.add.text(this.game.canvas.width/2
+        this.scoreText = this.add.text(this.game.canvas.width/2-50
             , 30
             , 'Killed: ' + this.killed
-            , {font: "30px Callibri", fill: "#ffffff", align: "justify"}
+            , {font: "30px Callibri", fill: "#ffffff", align: "center"}
         );
 
-        this.livesText = this.add.text(this.game.canvas.width/2
+        this.livesText = this.add.text(this.game.canvas.width/2-50
             , 150
-            , 'Saved: ' + this.lives
-            , {font: "40px Callibri", fill: "#ffffff"}
+            , 'Saved: ' + this.lives + '/'+this.PJ_MAX_LIFES
+            , {font: "40px Callibri", fill: "#ffffff", align: "center"}
         );
 
-        this.endText = this.add.text(this.game.canvas.width/2
+        this.endText = this.add.text(this.game.canvas.width/2-200
             , 150
-            , 'Saved: ' + this.lives
-            , {font: "40px Callibri", fill: "#ffffff"}
+            , 'GAME OVER \n- click to restart -'
+            , {font: "60px Callibri", fill: "#ffffff", align: "center" }
         );
 
+        this.endText.visible = false;
+
+        this.nextText = this.add.text(this.game.canvas.width/2-200
+            , 150
+            , 'LEVEL ACHIEVED \n- click to next level -'
+            , {font: "60px Callibri", fill: "#ffffff", align: "center"}
+        );
+        this.nextText.visible = false;
+
+        this.levelText = this.add.text(10
+            , 10
+            , ''+this.gameLevel
+            , {font: "60px Callibri", fill: "#ffffff", align: "center"}
+        );
+        this.nextText.visible = false;
     }
 
 
     update():void {
         super.update();
-        this.PJmovement();
+        this.PJmovement();        //movimientos del jugador
         this.fireWithLeftMouse();
-        this.updateText();
+        this.updateText();        //actualiza los textos de la pantall
+        this.nextLevelListener(); //comprueba las condiciones para subir de nivel
 
         this.physics.arcade.collide(this.fireballs, this.monsters, this.fireballHitMonster, null, this);
 
     }
 
+    /**
+     * Movimientos del jugador
+     * @constructor
+     */
     private PJmovement() {
 
         if (this.lives > 0) {
@@ -257,6 +285,7 @@ class mainState extends Phaser.State {
                 else this.player.animations.play('iddleLeft');
             }
 
+            //El salto del jugador. controla el tiempo de salto
             if (this.upBtn.isDown && this.player.body.onFloor() && this.time.now > this.jumpTimer) {
                 this.player.body.velocity.y = -500;
                 this.jumpTimer = this.time.now + 750;
@@ -267,16 +296,21 @@ class mainState extends Phaser.State {
         }
     }
 
+    /**
+     * disparo del jugador con boton de mouse
+     */
     private fireWithLeftMouse() {
         if (this.lives > 0) {
 
             if (this.input.activePointer.isDown) {
                 this.shoot();
             }
-
         }
     }
 
+    /**
+     * Control del disparo del jugador
+     */
     shoot():void {
 
         if (this.time.now > this.nextFire && this.fireballs.countDead() > 0) {
@@ -284,16 +318,23 @@ class mainState extends Phaser.State {
 
             var fireball = this.fireballs.getFirstDead();
 
+            //dispara bola y controla en que posicion esta el jugador para determinar velocidad
             if (fireball) {
                 fireball.reset(this.player.x + 15, this.player.y - 15);
                 if (this.rightStance) fireball.body.velocity.x = this.FB_MAX_SPEED;
                 else fireball.body.velocity.x = -this.FB_MAX_SPEED;
-
             }
         }
     }
 
+    /**
+     * metodo ccuando la bola golpea el monstruo
+     * @param fireball
+     * @param monster
+     */
     private fireballHitMonster(fireball:Phaser.Sprite, monster:Phaser.Sprite) {
+
+        //Primero mostramos el texto con el tween
         var tweenIn = this.add.tween(this.scoreText).to({alpha: 1}, 50);
         tweenIn.start();
 
@@ -306,24 +347,75 @@ class mainState extends Phaser.State {
             monster.kill();
         });
 
+        //sonido al impactar
         this.deathSound.play();
+
+        //fundido a transparente tras mostrar el marcador
         var tweenOut = this.add.tween(this.scoreText).to({alpha: 0}, 1500);
         tweenIn.onComplete.add(() => {
             tweenOut.start();
         });
     }
 
+    /**
+     * metodo que comprueba y actualiza los marcadores
+     */
     private updateText(){
         this.scoreText.text = 'Killed: ' + this.killed;
         this.livesText.text = 'Saved: ' + this.lives;
     }
 
+    /**
+     * Metodo que comprueba en continuo si hay las condiciones para pasar de nivel
+     */
+    private nextLevelListener(){
+
+        if (this.monsters.countLiving() == 0 && this.lives > 0){
+
+            this.game.paused = true;
+
+            this.livesText.visible = false;
+            this.scoreText.visible = true;
+
+            this.nextText.visible = true;
+
+            this.levelUp = true;
+            console.log("pasa por aki");
+            this.input.onTap.addOnce(this.restart, this);
+        }
+
+    }
+
+    /**
+     * Metodo que pasa de nivel y preparar las condiciones del nuevo nivel o repite el mismo nivel si el jugador pierde
+     */
     private restart(){
-        this.lives = this.PJ_MAX_LIFES;
-        this.killed = 0;
+
+        if (!this.levelUp){
+            console.log("mismo nivel");
+            this.lives = this.PJ_MAX_LIFES;
+            this.killed = 0;
+
+            //aqui añadimos las condiciones del nuevo nivel
+        }else if (this.levelUp){
+            console.log("level up");
+            this.gameLevel +=1;
+            this.PJ_MAX_LIFES +=1;              //mas monstruos que debemos matar
+            this.lives = this.PJ_MAX_LIFES;
+            this.MOB_QUANTITY += 2;             //mayor cantidad de mosntruos
+            this.MOB_MAX_VELOCITY += 3;         //aumenta el rango de velocidades asignadas a los monstruos
+        }
+
+        this.endText.visible = false;
+        this.nextText.visible = false;
+
+        this.livesText.visible = true;
+        this.scoreText.visible = true;
 
         this.game.paused = false;
-        this.game.state.restart();
+        this.levelUp = false;
+
+        this.game.state.restart(); // RESTART
     }
 
 }
@@ -375,22 +467,6 @@ class Fireball extends Phaser.Sprite {
     }
 
 }
-/*
-this.fireball = this.add.sprite(this.player.x, this.player.y, 'fireball');
-this.fireball.scale.setTo(0.15, 0.15);
-this.fireball.anchor.setTo(0.5, 0.5);
-
-//variables Animacion
-this.fireball.animations.add('run').play();
-
-//variables de movimiento
-this.physics.enable(this.fireball);
-this.fireball.body.collideWorldBounds = true;       //Colision
-this.fireball.body.bounce.setTo(0.8);               //Rebote
-this.fireball.body.maxVelocity.setTo(this.FB_MAX_SPEED, this.FB_MAX_SPEED);
-
-this.fireball.rotation = this.physics.arcade.angleToPointer(this.fireball)
-*/
 
 
 class SimpleGame {
